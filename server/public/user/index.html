@@ -1,0 +1,101 @@
+<!-- index.html -->
+<!doctype html>
+
+<!-- ASSIGN OUR ANGULAR MODULE -->
+<html ng-app="aqMonitor">
+<head>
+    <!-- META -->
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1"/><!-- Optimize mobile viewport -->
+
+    <title>Air Quality Monitor</title>
+
+    <!-- SCROLLS -->
+    <link rel="stylesheet" href="//netdna.bootstrapcdn.com/bootstrap/3.0.0/css/bootstrap.min.css"/><!-- load bootstrap -->
+    <link rel="stylesheet" href="aq.css"/>
+    <style>
+        html                    { overflow-y:scroll; }
+        body                    { padding-top:50px; }
+        #todo-list              { margin-bottom:30px; }
+        trafficlight            { padding:20px; }
+    </style>
+
+    <!-- SPELLS -->
+    <script src="//ajax.googleapis.com/ajax/libs/angularjs/1.0.8/angular.min.js"></script><!-- load angular -->
+    <script src="core.js"></script>
+
+</head>
+<!-- SET THE CONTROLLER AND GET ALL TODOS -->
+<body ng-controller="mainController">
+    <div class="container" >
+
+        <!-- HEADER AND TODO COUNT -->
+        <div class="jumbotron text-center">
+            <h1>Air Quality Monitor</h1>
+        </div>
+        <div id="aq-indicator" class="row">
+            <div class="col-sm-12">
+                <span class="lead">Current air quality is: </span><span ng-class="status.status"></span>
+            </div>
+        </div>
+        <div id="aq-data" class="row">
+            <div class="col-sm-4">
+                <h3>Average Readings</h3>
+                <div><span class="valuelabel">Average Particle Density</span><span class="label label-info">{{ status.avgdensity}}</span></div>
+                <div><span class="valuelabel">Average Temperature</span><span class="label label-info">{{ status.avgtemp}}</span></div>
+                <div><span class="valuelabel">Average Relative Humidity</span><span class="label label-info">{{ status.avghumidity}}</span></div>
+                <div><span class="valuelabel">Average MQ135 (NO2, SO2) Reading</span><span class="label label-info">{{ status.avgmq135}}</span></div>
+                <div><span class="valuelabel">Average MQ131 (Ozone) Reading</span><span class="label label-info">{{ status.avgmq131}}</span></div>
+                <div><span class="valuelabel">Average MQ7 (CO) Reading</span><span class="label label-info">{{ status.avgmq7}}</span></div>
+            </div>
+            <div class="col-sm-4">
+                <h3>Minimum Readings</h3>
+                <div><span class="valuelabel">Minimum Particle Density</span><span class="label label-info">{{ status.mindensity}}</span></div>
+                <div><span class="valuelabel">Minimum Temperature</span><span class="label label-info">{{ status.mintemp}}</span></div>
+                <div><span class="valuelabel">Minimum Relative Humidity</span><span class="label label-info">{{ status.minhumidity}}</span></div>
+                <div><span class="valuelabel">Minimum MQ135 (NO2, SO2) Reading</span><span class="label label-info">{{ status.minmq135}}</span></div>
+                <div><span class="valuelabel">Minimum MQ131 (Ozone) Reading</span><span class="label label-info">{{ status.minmq131}}</span></div>
+                <div><span class="valuelabel">Minimum MQ7 (CO) Reading</span><span class="label label-info">{{ status.minmq7}}</span></div>
+            </div>
+            <div class="col-sm-4">
+                <h3>Maximum Readings</h3>
+                <div><span class="valuelabel">Maximum Particle Density</span><span class="label label-info">{{ status.maxdensity}}</span></div>
+                <div><span class="valuelabel">Maximum Temperature</span><span class="label label-info">{{ status.maxtemp}}</span></div>
+                <div><span class="valuelabel">Maximum Relative Humidity</span><span class="label label-info">{{ status.maxhumidity}}</span></div>
+                <div><span class="valuelabel">Maximum MQ135 (NO2, SO2) Reading</span><span class="label label-info">{{ status.maxmq135}}</span></div>
+                <div><span class="valuelabel">Maximum MQ131 (Ozone) Reading</span><span class="label label-info">{{ status.maxmq131}}</span></div>
+                <div><span class="valuelabel">Maximum MQ7 (CO) Reading</span><span class="label label-info">{{ status.maxmq7}}</span></div>
+            </div>
+        </div>
+        <div id="aq-graphheader" class="row">
+            <div class="col-sm-12">
+                <h3>Sensor Graphs</h3>
+            </div>
+        </div>
+        <div id="aq-graphs1" class="row">
+            <div class="col-sm-6">
+                <iframe frameBorder="0" src="http://192.168.0.3:5601/app/kibana#/visualize/edit/MQ135-Organic-Compounds?embed=true&_g=(refreshInterval:(display:'10%20seconds',pause:!f,section:1,value:10000),time:(from:now-15m,mode:quick,to:now))&_a=(filters:!(),linked:!f,query:(query_string:(analyze_wildcard:!t,query:'*')),uiState:(),vis:(aggs:!((id:'1',params:(customLabel:'MQ135%20Organic%20Compounds',field:gsdata.MQ135),schema:metric,type:avg),(id:'2',params:(customInterval:'2h',extended_bounds:(),field:datetime,interval:auto,min_doc_count:1),schema:segment,type:date_histogram)),listeners:(),params:(addLegend:!t,addTimeMarker:!f,addTooltip:!t,defaultYExtents:!f,drawLinesBetweenPoints:!t,interpolate:linear,radiusRatio:9,scale:linear,setYExtents:!f,shareYAxis:!t,showCircles:!t,smoothLines:!f,times:!(),yAxis:()),title:'MQ135%20Organic%20Compounds',type:line))" height="300" width="400"></iframe>
+            </div>
+            <div class="col-sm-6">
+                <iframe frameBorder="0" src="http://192.168.0.3:5601/app/kibana#/visualize/edit/MQ131-Ozone?embed=true&_g=(refreshInterval:(display:'10%20seconds',pause:!f,section:1,value:10000),time:(from:now-15m,mode:quick,to:now))&_a=(filters:!(),linked:!f,query:(query_string:(analyze_wildcard:!t,query:'*')),uiState:(),vis:(aggs:!((id:'1',params:(customLabel:'MQ131%20Ozone',field:gsdata.MQ131),schema:metric,type:avg),(id:'2',params:(customInterval:'2h',extended_bounds:(),field:datetime,interval:auto,min_doc_count:1),schema:segment,type:date_histogram)),listeners:(),params:(addLegend:!t,addTimeMarker:!f,addTooltip:!t,defaultYExtents:!f,drawLinesBetweenPoints:!t,interpolate:linear,radiusRatio:9,scale:linear,setYExtents:!f,shareYAxis:!t,showCircles:!t,smoothLines:!f,times:!(),yAxis:()),title:'MQ131%20Ozone',type:line))" height="300" width="400"></iframe>
+            </div>
+        </div>
+        <div id="aq-graphs2" class="row">
+            <div class="col-sm-6">
+                <iframe frameBorder="0" src="http://192.168.0.3:5601/app/kibana#/visualize/edit/Temperature?embed=true&_g=(refreshInterval:(display:'10%20seconds',pause:!f,section:1,value:10000),time:(from:now-15m,mode:quick,to:now))&_a=(filters:!(),linked:!f,query:(query_string:(analyze_wildcard:!t,query:'*')),uiState:(),vis:(aggs:!((id:'1',params:(customLabel:Temperature,field:thdata.temp),schema:metric,type:avg),(id:'2',params:(customInterval:'10s',extended_bounds:(),field:datetime,interval:custom,min_doc_count:1),schema:segment,type:date_histogram)),listeners:(),params:(addLegend:!t,addTimeMarker:!f,addTooltip:!t,defaultYExtents:!f,drawLinesBetweenPoints:!t,interpolate:linear,radiusRatio:9,scale:linear,setYExtents:!f,shareYAxis:!t,showCircles:!t,smoothLines:!t,times:!(),yAxis:()),title:Temperature,type:line))" height="300" width="400"></iframe>
+            </div>
+            <div class="col-sm-6">
+                <iframe frameBorder="0" src="http://192.168.0.3:5601/app/kibana#/visualize/edit/Humidity?embed=true&_g=(refreshInterval:(display:'10%20seconds',pause:!f,section:1,value:10000),time:(from:now-15m,mode:quick,to:now))&_a=(filters:!(),linked:!f,query:(query_string:(analyze_wildcard:!t,query:'*')),uiState:(),vis:(aggs:!((id:'1',params:(customLabel:Humidity,field:thdata.humidity),schema:metric,type:avg),(id:'2',params:(customInterval:'10s',extended_bounds:(),field:datetime,interval:custom,min_doc_count:1),schema:segment,type:date_histogram)),listeners:(),params:(addLegend:!t,addTimeMarker:!f,addTooltip:!t,defaultYExtents:!f,drawLinesBetweenPoints:!t,interpolate:linear,radiusRatio:9,scale:linear,setYExtents:!f,shareYAxis:!t,showCircles:!t,smoothLines:!t,times:!(),yAxis:()),title:Humidity,type:line))" height="300" width="400"></iframe>
+            </div>
+        </div>
+        <div id="aq-graphs3" class="row">
+            <div class="col-sm-6">
+                <iframe frameBorder="0" src="http://192.168.0.3:5601/app/kibana#/visualize/edit/Particle-Density?embed=true&_g=(refreshInterval:(display:'10%20seconds',pause:!f,section:1,value:10000),time:(from:now-15m,mode:quick,to:now))&_a=(filters:!(),linked:!f,query:(query_string:(analyze_wildcard:!t,query:'*')),uiState:(),vis:(aggs:!((id:'1',params:(customLabel:'Particle%20Density',field:dsdata.density),schema:metric,type:avg),(id:'2',params:(customInterval:'10s',extended_bounds:(),field:datetime,interval:custom,min_doc_count:1),schema:segment,type:date_histogram)),listeners:(),params:(addLegend:!t,addTimeMarker:!f,addTooltip:!t,defaultYExtents:!f,drawLinesBetweenPoints:!t,interpolate:linear,radiusRatio:9,scale:linear,setYExtents:!f,shareYAxis:!t,showCircles:!t,smoothLines:!t,times:!(),yAxis:()),title:'Particle%20Density',type:line))" height="300" width="400"></iframe>
+            </div>
+            <div class="col-sm-6">
+                <iframe frameBorder="0" src="http://192.168.0.3:5601/app/kibana#/visualize/edit/MQ7-Carbon-Monoxide?embed=true&_g=(refreshInterval:(display:'10%20seconds',pause:!f,section:1,value:10000),time:(from:now-15m,mode:quick,to:now))&_a=(filters:!(),linked:!f,query:(query_string:(analyze_wildcard:!t,query:'*')),uiState:(),vis:(aggs:!((id:'1',params:(customLabel:'MQ7%20Carbon%20Monoxide',field:gsdata.MQ7),schema:metric,type:avg),(id:'2',params:(customInterval:'10s',extended_bounds:(),field:datetime,interval:auto,min_doc_count:1),schema:segment,type:date_histogram)),listeners:(),params:(addLegend:!t,addTimeMarker:!f,addTooltip:!t,defaultYExtents:!f,drawLinesBetweenPoints:!t,interpolate:linear,radiusRatio:9,scale:linear,setYExtents:!f,shareYAxis:!t,showCircles:!t,smoothLines:!f,times:!(),yAxis:()),title:'MQ7%20Carbon%20Monoxide',type:line))" height="300" width="400"></iframe>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
