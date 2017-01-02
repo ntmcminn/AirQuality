@@ -7,6 +7,7 @@
     "body-parser": "1.0.1",
     "uuid": "2.0.3",
     "morgan": "1.7.0",
-    "elasticsearch": "12.0.1"
+    "elasticsearch": "12.0.1",
+    "rpio":"0.9.14"
   }
 }

@@ -5,6 +5,7 @@ var morgan = require('morgan');
 var mongodb = require('mongodb');
 var elasticsearch = require('elasticsearch');
 var uuid = require('uuid');
+var rpio = require('rpio');
 
 // local requires
 var queries = require('./queries.js');
@@ -24,6 +25,12 @@ var aqdb;
 var esinittype = 'initdata';
 var esdatatype = 'aqdata';
 
+var lights = {
+  green:11,
+  yellow:12,
+  red:13
+}
+
 // use bodyParser so we can get data from POST
 app.use(bodyParser.urlencoded({extended: true}));
 app.use(bodyParser.json());
@@ -39,6 +46,11 @@ var esclient = new elasticsearch.Client({
   host: eshost + ':' + esport,
   log: 'error'
 });
+
+// set up GPIO pins for light status, all off at system startup
+rpio.open(lights.green, rpio.OUTPUT, rpio.LOW);   // green light
+rpio.open(lights.yellow, rpio.OUTPUT, rpio.LOW);   // yellow light
+rpio.open(lights.red, rpio.OUTPUT, rpio.LOW);   // red light
 
 /*mongoclient.connect('mongodb://' + mongohost + ':' + mongoport + '/' + mongocollection, function(err, db) {
   if (err) throw err;
@@ -132,8 +144,11 @@ router.route('/aqdata')
     // get 15 minute running averages
 
     // calculate status value
-    
+    var currentaq = calculateAQstatus();
+
     // update system status based on new values
+    updateAQState(currentaq);
+
   });
 
 // route for interacting with device init data
@@ -151,7 +166,7 @@ router.route('/initdata')
 
 function saveData(jsonbody, estype){
 
-  // convert millis time to a real datetime
+  // convert millis time to a real datetime (all dates are passed in as GMT)
   var reald = new Date(jsonbody.time * 1000);
   jsonbody.datetime = reald;
   
@@ -231,6 +246,12 @@ function calculateAQstatus() {
    */
   
   /**
+   * MQ7 carbon monoxide readings are similar to the other MQ series sensors, higher is
+   * worse, but this cannot yet be correlated to a PPM reading.  Need calibration for
+   * that.  For now itis also a relative measurement.
+   */
+
+  /**
    * At higher temperatures we know the effect of pollution is worse, so let's apply 
    * a temperature correction factor.  Studies show that high temperature and high
    * humidity make particle pollution worse, and higher temperatures exacerbate other
@@ -241,13 +262,29 @@ function calculateAQstatus() {
   return aqStatus;
 }
 
-function updateAQState() {
+function updateAQState(currentaq) {
 
   // first, check override switches, if system is in yellow, red or green override, change values
 
   // next, check for a payment based override.  Has somebody paid to switch this thing back on?
 
   // set pins for lights
+  if(currentaq <= 100) {
+    // go green!
+    rpio.write(lights.green, rpio.HIGH);
+    rpio.write(lights.yellow, rpio.LOW);
+    rpio.write(lights.red, rpio.LOW);
+  }else if(currentaq > 100 && currentaq <= 150) {
+    // yellow, not so good
+    rpio.write(lights.green, rpio.LOW);
+    rpio.write(lights.yellow, rpio.HIGH);
+    rpio.write(lights.red, rpio.LOW);
+  }else if(currentaq > 150) {
+    // red, it's a bad day
+    rpio.write(lights.green, rpio.LOW);
+    rpio.write(lights.yellow, rpio.LOW);
+    rpio.write(lights.red, rpio.HIGH);
+  }
 
   // update WiFi AP state (open, throttled or off)
 }
