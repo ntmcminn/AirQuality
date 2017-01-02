@@ -125,8 +125,9 @@ router.route('/aqdata')
   .post(function(req, res) {
 
     var jsonbody = req.body;
-    // here's where we will create an object to store in MongoDB'
-    res.json(saveData(jsonbody, esdatatype));
+    var responseobj = saveData(jsonbody, esdatatype);
+    console.log('response object: ' + JSON.stringify(responseobj));
+    res.json({message: 'ok'});
 
     // get 15 minute running averages
 
@@ -143,8 +144,9 @@ router.route('/initdata')
     
     var jsonbody = req.body;
     //console.log('initdata POST body: ' + JSON.stringify(req.body));
-    res.json(saveData(jsonbody, esinittype));
-    
+    var responseobj = saveData(jsonbody, esinittype);
+    console.log('response object: ' + JSON.stringify(responseobj));
+    res.json({message: 'ok'});
   });
 
 function saveData(jsonbody, estype){
@@ -181,10 +183,12 @@ function saveData(jsonbody, estype){
         console.log('Error inserting into Elasticsearch: ' + err);
         return {message: 'Could not save data to Elasticsearch'};
       }else{
-        // console.log('Response: ' + res);
+        console.log('Response: ' + res);
         return {message: 'Saved data to Elasticsearch'};
       }
     });
+  }else {
+    return {message: 'Invalid JSON body provided'};
   }
 }
 // API routes
