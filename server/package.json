@@ -8,6 +8,13 @@
     "uuid": "2.0.3",
     "morgan": "1.7.0",
     "elasticsearch": "12.0.1",
-    "rpio":"0.9.14"
-  }
+    "rpio":"0.9.14",
+    "jasmine":"2.5.2"
+  },
+  "scripts": {
+    "preinstall":"none",
+    "postinstall":"none",
+    "start": "node server.js",
+    "test": "jasmine"
+  } 
 }
