@@ -5,7 +5,7 @@ var morgan = require('morgan');
 var mongodb = require('mongodb');
 var elasticsearch = require('elasticsearch');
 var uuid = require('uuid');
-var rpio = require('rpio');
+//var rpio = require('rpio');
 
 // local requires
 var queries = require('./queries.js');
@@ -48,9 +48,9 @@ var esclient = new elasticsearch.Client({
 });
 
 // set up GPIO pins for light status, all off at system startup
-rpio.open(lights.green, rpio.OUTPUT, rpio.LOW);   // green light
-rpio.open(lights.yellow, rpio.OUTPUT, rpio.LOW);   // yellow light
-rpio.open(lights.red, rpio.OUTPUT, rpio.LOW);   // red light
+//rpio.open(lights.green, rpio.OUTPUT, rpio.LOW);   // green light
+//rpio.open(lights.yellow, rpio.OUTPUT, rpio.LOW);   // yellow light
+//rpio.open(lights.red, rpio.OUTPUT, rpio.LOW);   // red light
 
 /*mongoclient.connect('mongodb://' + mongohost + ':' + mongoport + '/' + mongocollection, function(err, db) {
   if (err) throw err;
@@ -136,18 +136,25 @@ router.route('/aqdata')
   // record a new AQ data package
   .post(function(req, res) {
 
-    var jsonbody = req.body;
-    var responseobj = saveData(jsonbody, esdatatype);
-    console.log('response object: ' + JSON.stringify(responseobj));
-    res.json({message: 'ok'});
+    var callback = function(err, esres) {
+      if(err){
+        console.log('Error inserting into Elasticsearch: ' + err);
+      }else{
+        console.log('Response: ' + esres);
+      }
+    }
 
+    var jsonbody = req.body;
+    var responseobj = saveData(jsonbody, esdatatype, callback);
+    res.json({message: 'ok'});
+    
     // get 15 minute running averages
 
     // calculate status value
     var currentaq = calculateAQstatus();
 
     // update system status based on new values
-    updateAQState(currentaq);
+    //updateAQState(currentaq);
 
   });
 
@@ -164,7 +171,9 @@ router.route('/initdata')
     res.json({message: 'ok'});
   });
 
-function saveData(jsonbody, estype){
+function saveData(jsonbody, estype, callback){
+
+  var saveResp = {};
 
   // convert millis time to a real datetime (all dates are passed in as GMT)
   var reald = new Date(jsonbody.time * 1000);
@@ -193,17 +202,8 @@ function saveData(jsonbody, estype){
       id: uuid.v1(),
       body: jsonbody
     }
-    esclient.create(idxobj, function(err, res){
-      if(err){
-        console.log('Error inserting into Elasticsearch: ' + err);
-        return {message: 'Could not save data to Elasticsearch'};
-      }else{
-        console.log('Response: ' + res);
-        return {message: 'Saved data to Elasticsearch'};
-      }
-    });
-  }else {
-    return {message: 'Invalid JSON body provided'};
+    
+    esclient.create(idxobj, callback);
   }
 }
 // API routes
