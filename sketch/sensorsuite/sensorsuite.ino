@@ -1,5 +1,6 @@
 /**
- * Air quality monitoring package for Arduino
+ * Air quality monitoring package for Arduino.  This borrows HEAVILY from various sensor, wifi and other
+ * examples found on the internet.  See the project github README.md for a list as best I can remember it.
  */
 #include <ArduinoJson.h>
 #include <DHT.h>
@@ -10,31 +11,32 @@
 //#include <debug.h>
 #include <avr/wdt.h>
 #include <WiFi101.h>
+#include <WiFiUdp.h>
 
 /********************  WLAN settings ********************/
-#define ADAFRUIT_WINC1500_IRQ     2           // MUST be an interrupt pin!
+#define ADAFRUIT_WINC1500_IRQ     2  
 #define ADAFRUIT_WINC1500_RST     3
-#define ADAFRUIT_WINC1500_CS      4
+#define ADAFRUIT_WINC1500_CS      4           // this pin can be pulled low to switch between SPI devices
 #define WLAN_SSID                 "AQnet"
 #define WLAN_PASS                 "AQnet123"
 #define WLAN_SECURITY             WLAN_SEC_WPA2
 #define IDLE_TIMEOUT_MS           3000 
 
 /******************** AM2302 temp and humidity sensor settings ********************/
-#define DHT_PIN                   47          // digital input pin
+#define DHT_PIN                   5           // digital input pin
 #define DHT_TYPE                  DHT22       // DHT 22  (AM2302)
 
 /******************** Sharp GP2Y10 dust sensor settings ********************/
-#define DUST_SENSOR_ANALOG_IN     9           // analog pin to read dust sensor data
-#define LED_POWER                 49          // digital pin used to provide power to dust sensor LED
-#define SAMPLING_TIME             280 
+#define DUST_SENSOR_ANALOG_IN     8           // analog pin to read dust sensor data
+#define LED_POWER                 7           // digital pin used to provide power to dust sensor LED
+#define SAMPLING_TIME             280         // original value 280
 #define DELTA_TIME                40
 #define SLEEP_TIME                9680
 
 /******************** MQ135 / MQ131 gas sensor settings ********************/
-#define MQ135_ANALOG              8
-#define MQ131_ANALOG              10
-#define MQ7_ANALOG                11
+#define MQ135_ANALOG              14
+#define MQ131_ANALOG              13
+#define MQ7_ANALOG                15
 
 /******************** Staus LED pins ********************/
 #define LED_STARTING              24
@@ -43,7 +45,7 @@
 #define LED_SYSTEM_HALTED         26
 
 /******************** General application settings ********************/
-#define LOOP_DELAY                60000               // how frequently to take a reading from the sensor array (in ms)
+#define LOOP_DELAY                10000               // how frequently to take a reading from the sensor array (in ms)
 #define DATA_VERSION              1                   // version of the API / JSON format that this package is using
 #define INIT_PATH                 "/api/initdata"     // url path for saving unit initialization data
 #define DATA_PATH                 "/api/aqdata"       // url path for saving air quality data readings
@@ -52,9 +54,11 @@
 #define IDLE_TIMEOUT_MS           10000               // timeout for http operations
 #define DEVICE_ID                 1                   // id of this device in the AQ network
 #define JSON_BUFFER_SIZE          512                 // size of buffer to use for JSON packages
-#define CHUNK_SIZE                64                  // size of individual chunks to write out via client
-#define READ_LENGTH               15                  // how much of the response to read.  We don't need the whole thing
+#define CHUNK_SIZE                128                 // size of individual chunks to write out via client
+#define READ_LENGTH               15                  // how much of the response to read.  We don't need the whole thing (15 to get the HTTP response line)
 #define MAX_CONNECT_ATTEMPTS      5                   // how many times to attemp wifi connect and DHCP lease
+#define NTP_PORT                  2390                // local port to listen for NTP packet responses
+#define NTP_PACKET_SIZE           48                  // fixed size for an NTP packet
 
 /******************** structs for sensor data ********************/
 struct th
@@ -77,24 +81,14 @@ struct gs
    float MQ7;
 };
 
-/******************** initializations ********************/
+/******************** other initializations ********************/
 DHT dht(DHT_PIN, DHT_TYPE);
-
-// Initialize the Wifi client library
-WiFiClient client;
-
-const unsigned long
-  dhcpTimeout     = 90L * 1000L, // Max time to wait for address from DHCP
-  connectTimeout  = 15L * 1000L, // Max time to wait for server connection
-  responseTimeout = 15L * 1000L; // Max time to wait for data from 
-  
-unsigned long
-  currentTime = 0L;
-
-uint32_t ip;
-char hostip[16];
-
-int status = WL_IDLE_STATUS;
+IPAddress timeServer(129, 6, 15, 28);       // time.nist.gov NTP server
+WiFiUDP Udp;                                // A UDP instance to let us send and receive packets over UDP
+WiFiClient client;                          // A client instance to use to connect to our http server
+unsigned long startTime = 0L;               // the startup time, retrieved from an NTP server          
+byte packetBuffer[ NTP_PACKET_SIZE];        //buffer to hold incoming and outgoing packets
+int status = WL_IDLE_STATUS;      
 
 void setup() {
 
@@ -119,26 +113,26 @@ void setup() {
   
   wdt_reset();
   
-  // set up host IP char array for sendData
-  hostStringFromIp(hostip);
-  
   // send system startup notification to logging server
   // use sendData method to do this, passing path and payload
   char jsonbuffer[JSON_BUFFER_SIZE];
   int len = createInitPayload(jsonbuffer);
   
   //send to server
-  sendData(INIT_PATH, jsonbuffer, len);
- 
+  //sendData(INIT_PATH, jsonbuffer, len);
+
+  setLocalTime();
+  
   // set output pin for dust sensor LED
-  pinMode(LED_POWER,OUTPUT);
+  pinMode(LED_POWER, OUTPUT);
 
   // take initial sensor readings and discard.  This prevents weird spikes at startup.
   // dust sensor seems especially prone to super low value spikes when it is first read
   getGasSensorData();
   getTempHumidityData();
   getDustSensorData();
-  
+
+  wdt_reset();
 }
 
 void loop() {
@@ -149,7 +143,7 @@ void loop() {
     wdt_reset();
   }
   
-  Serial.print(F("Free RAM: ")); 
+  //Serial.print(F("Free RAM: ")); 
   //Serial.println(getFreeRam(), DEC);
   
   // read values from gas sensors
@@ -174,13 +168,64 @@ void loop() {
 
 }
 
+/**
+ * Sets the local time using data that comes from an NTP time server.  Without timestamps the data is useless,
+ * so this method should set an error LED and halt the system if time cannot be determined.  At a later date this
+ * should fall back to the GPS as a secondary time source so we can continue to monitor even if the internet
+ * connection is interrupted.
+ */
+void setLocalTime() {
+
+ // contact NTP server, use response as the current start time
+  Udp.begin(NTP_PORT);
+  sendNTPpacket(timeServer); 
+  wdt_reset();
+  delay(5000);
+  Serial.println("Setting local time from NTP");
+
+  unsigned long lastRead = millis();
+  while(!Udp.parsePacket() && millis() - lastRead < IDLE_TIMEOUT_MS) {
+    wdt_reset();
+    delay(5000);
+  }
+  
+  if (millis() - lastRead < IDLE_TIMEOUT_MS) {
+    Serial.println(F("NTP packet received"));
+    // We've received a packet, read the data from it
+    Udp.read(packetBuffer, NTP_PACKET_SIZE); // read the packet into the buffer
+
+    //the timestamp starts at byte 40 of the received packet and is four bytes,
+    // or two words, long. First, esxtract the two words:
+
+    unsigned long highWord = word(packetBuffer[40], packetBuffer[41]);
+    unsigned long lowWord = word(packetBuffer[42], packetBuffer[43]);
+    // combine the four bytes (two words) into a long integer
+    // this is NTP time (seconds since Jan 1 1900):
+    unsigned long secsSince1900 = highWord << 16 | lowWord;
+    // now convert NTP time into everyday time:
+    Serial.print("Unix time = ");
+    // Unix time starts on Jan 1 1970. In seconds, that's 2208988800:
+    const unsigned long seventyYears = 2208988800UL;
+    // subtract seventy years:
+    unsigned long epoch = secsSince1900 - seventyYears;
+    // print Unix time:
+    Serial.println(epoch); 
+    startTime = epoch;    
+  }else {
+    hang(F("Could not get NTP time, timeout exceeded"));
+  }
+}
+
+/**
+ * Creates a device initialization JSON package, used to tell the AQ network when this particular monitor started up.
+ */
 int createInitPayload(char *jbuf) {
   StaticJsonBuffer<200> jsonBuffer;
 
   JsonObject& root = jsonBuffer.createObject();
 
   // add in the time and version data for this package
-  root["time"] = currentTime + (int)(millis() / 1000);
+  root["time"] = startTime + (int)(millis() / 1000);
   root["dataversion"] = DATA_VERSION;
   //root["freemem"] = getFreeRam();
   root["deviceid"] = DEVICE_ID;
@@ -196,13 +241,17 @@ int createInitPayload(char *jbuf) {
   return len + 2;
 }
 
+/**
+ * Generates the JSON used to store and transmit the air quality data.  This package of data includes sensor 
+ * readings, some system info (device id, data format version), and the current system time in GMT
+ */
 int createAqPayload(gs gsdata, th thdata, ds dsdata, char *jbuf){
   StaticJsonBuffer<200> jsonBuffer;
 
   JsonObject& root = jsonBuffer.createObject();
 
   // add in the time and version data for this package
-  root["time"] = currentTime + (int)(millis() / 1000);
+  root["time"] = startTime + (int)(millis() / 1000);
   root["dataversion"] = DATA_VERSION;
   //root["freemem"] = getFreeRam();
   root["deviceid"] = DEVICE_ID;
@@ -234,14 +283,11 @@ int createAqPayload(gs gsdata, th thdata, ds dsdata, char *jbuf){
   return len + 2;
 }
 
-void hostStringFromIp(char* ipbuffer) {
-  IPAddress ipobj = IPAddress(ip);
-  sprintf(ipbuffer, "%d.%d.%d.%d\0", ipobj[3], ipobj[2], ipobj[1], ipobj[0]);
-}
-
+/**
+ * Handles sending generated JSON data to the server configured in the settings
+ */
 void sendData(char path[], char *json, int len) {
 
-  
   Serial.print(F("Sending this data: "));
   Serial.println(json);
 
@@ -249,16 +295,15 @@ void sendData(char path[], char *json, int len) {
   memcpy(jsondata, json, len);
   
   Serial.print(F("Connecting to server: "));
-  Serial.print(hostip);
+  Serial.print(DATA_HOST);
   Serial.print(F(":"));
   Serial.print(PORT);
 
   wdt_reset();
-
-  client.connect(ip, PORT);
+   
+  client.connect(DATA_HOST, PORT);
   
   wdt_reset();
-
   
   if(client.connected()) {
 
@@ -272,32 +317,35 @@ void sendData(char path[], char *json, int len) {
     client.print(path);
     client.println(F(" HTTP/1.1")); 
     client.print(F("Host: "));
-    client.println(hostip);
+    client.println(DATA_HOST);
     client.print(F("Content-Length: "));
     client.println(clen);
     client.println(F("Connection: close"));
-    client.print(F("Content-Type: application/json"));
-    client.println("\r\n\r\n");
+    client.println(F("Content-Type: application/json"));
+    client.println("\r\n");
     Serial.println(F("OK"));
 
     // send json payload to server
     Serial.print(F("Sending content..."));
-    sendChunkedData(client, jsondata, CHUNK_SIZE);
+    //sendChunkedData(jsondata);
+    //client.println("{\"test\":\"test\"}");
+    client.println(jsondata);
     Serial.println(F("OK"));
   
     // read response
     Serial.println(F("Reading server response"));
     Serial.print(F("Client connected: "));
     Serial.println(client.connected());
+
+    wdt_reset();
     
     unsigned long lastRead = millis();
     int readlen = 0;
     while (readlen < READ_LENGTH && client.connected() && (millis() - lastRead < IDLE_TIMEOUT_MS)) {
       Serial.print(F("connected, available data bytes: "));
       Serial.println(client.available());
-      delay(10);
-      while (client.available() && readlen < READ_LENGTH) {
-        delay(10);
+      delay(100);
+      while (client.available() > 0) {
         char c = client.read();
         Serial.print(c);
         lastRead = millis();
@@ -306,37 +354,43 @@ void sendData(char path[], char *json, int len) {
     }
     Serial.print(F("\r\n\r\n"));
     Serial.println(F("Done"));
-    
-    client.stop();
+
   }else{
     Serial.println(F("\r\nConnection failed"));
   }
 }
 
-void sendChunkedData(WiFiClient client, String input, int chunksize) {
+/**
+ * Sends data to server in chunks of a size set by CHUNK_SIZE
+ */
+void sendChunkedData(String input) {
   
   // Get String length
   int length = input.length();
-  int max_iteration = (int)(length/chunksize);
-  if(length % chunksize != 0) {max_iteration++;}
+  int max_iteration = (int)(length/CHUNK_SIZE);
+  if(length % CHUNK_SIZE != 0) {max_iteration++;}
 
   int st = 0;
-  int en = chunksize;
+  int en = CHUNK_SIZE;
   
   for (int i = 0; i < max_iteration; i++) {
     //Serial.print("chunk: ");
     String chunk = input.substring(st, en);
-    char chunkarray[chunksize];
-    chunk.toCharArray(chunkarray, chunksize);
+    char chunkarray[CHUNK_SIZE];
+    chunk.toCharArray(chunkarray, CHUNK_SIZE);
     client.print(chunkarray);
-    //Serial.println(chunkarray);
+    Serial.print(chunkarray);
+    Serial.print("|");
     st = en - 1;
-    en = st + chunksize;
+    en = st + CHUNK_SIZE;
     if(en > length) {en = length;}
   }  
 }
 
-
+/**
+ * Reads raw, voltage and calcualtes particle density from dust sensor,
+ * returns data as a struct
+ */
 struct ds getDustSensorData() {
   struct ds ds_instance;
 
@@ -346,7 +400,7 @@ struct ds getDustSensorData() {
   ds_instance.raw = analogRead(DUST_SENSOR_ANALOG_IN); // read the dust value
  
   delayMicroseconds(DELTA_TIME);
-  digitalWrite(LED_POWER,HIGH); // turn the LED off
+  digitalWrite(LED_POWER, HIGH); // turn the LED off
   delayMicroseconds(SLEEP_TIME);
 
   ds_instance.voltage = ds_instance.raw * (5.0 / 1024.0);
@@ -363,6 +417,10 @@ struct ds getDustSensorData() {
   return ds_instance;
 }
 
+/**
+ * Reads the current temp and relative humidity from the DHT sensor,
+ * returns data as a struct
+ */
 struct th getTempHumidityData() {
   struct th th_instance;
 
@@ -378,6 +436,10 @@ struct th getTempHumidityData() {
   return th_instance;
 }
 
+/**
+ * Gets the analog readings from all three MQ series gas sensors,
+ * returns the values as a struct
+ */
 struct gs getGasSensorData() {
   struct gs gs_instance;
   gs_instance.MQ135 = analogRead(MQ135_ANALOG);
@@ -394,13 +456,34 @@ struct gs getGasSensorData() {
   return gs_instance;
 }
 
-bool displayConnectionDetails(void)
+/**
+ * send an NTP request to the time server at the given address, do not wait for a response
+ */
+unsigned long sendNTPpacket(IPAddress& address)
 {
- 
+  Serial.println("Sending NTP packet to server");
+  memset(packetBuffer, 0, NTP_PACKET_SIZE);
+  packetBuffer[0] = 0b11100011;               // LI, Version, Mode
+  packetBuffer[1] = 0;                        // Stratum, or type of clock
+  packetBuffer[2] = 6;                        // Polling Interval
+  packetBuffer[3] = 0xEC;                     // Peer Clock Precision
+  
+  // 8 bytes of zero for Root Delay & Root Dispersion
+  packetBuffer[12]  = 49;
+  packetBuffer[13]  = 0x4E;
+  packetBuffer[14]  = 49;
+  packetBuffer[15]  = 52;
+
+  // all NTP fields have been given values, now
+  // you can send a packet requesting a timestamp:
+  Udp.beginPacket(address, 123); //NTP requests are to port 123
+  Udp.write(packetBuffer, NTP_PACKET_SIZE);
+  Udp.endPacket();
 }
 
-
-// On error, print PROGMEM string to serial monitor and stop
+/**
+ * On error, print PROGMEM string to serial monitor and stop
+ */
 void hang(const __FlashStringHelper *str) {
   digitalWrite(LED_STARTING,LOW);
   digitalWrite(LED_NETWORK_OK, LOW);
@@ -410,6 +493,9 @@ void hang(const __FlashStringHelper *str) {
   for(;;);
 }
 
+/**
+ * Connect to the Wifi network that has been configured, set status LEDs according to connection state
+ */
 void connectToNetwork() {
 
   int attempts = 0;
@@ -426,16 +512,22 @@ void connectToNetwork() {
     Serial.println(F("WiFi shield not present"));
     hang(F("Wifi shield not present"));
   }
-
+  
+  wdt_reset();
+  
   // attempt to connect to Wifi network:
   while (status != WL_CONNECTED) {
     Serial.print(F("Attempting to connect to SSID: "));
     Serial.println(WLAN_SSID);
     // Connect to WPA/WPA2 network. Change this line if using open or WEP network:
     status = WiFi.begin(WLAN_SSID, WLAN_PASS);
-
+    
+    wdt_reset();
+    
     // wait 5 seconds for connection:
     delay(5000);
+
+    wdt_reset();
   }
   // you're connected now, so print out the status:
   printWifiStatus();
@@ -444,6 +536,9 @@ void connectToNetwork() {
   digitalWrite(LED_NETWORK_OK, HIGH);
 }
 
+/**
+ * Prints the Wifi status to the serial port, for debugging and testing purposes
+ */
 void printWifiStatus() {
   // print the SSID of the network you're attached to:
   Serial.print(F("SSID: "));
