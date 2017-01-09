@@ -96,7 +96,11 @@ void setup() {
   pinMode(LED_STARTING,OUTPUT);
   pinMode(LED_NETWORK_BAD, OUTPUT);
   pinMode(LED_NETWORK_OK, OUTPUT);
-  
+
+  digitalWrite(LED_STARTING, LOW);
+  digitalWrite(LED_NETWORK_OK, LOW);
+  pinMode(LED_NETWORK_OK, LOW);
+ 
   // initialize serial comms
   Serial.begin(115200);
 
@@ -133,6 +137,9 @@ void setup() {
   getDustSensorData();
 
   wdt_reset();
+   
+  digitalWrite(LED_STARTING,LOW);
+  digitalWrite(LED_NETWORK_OK, HIGH);
 }
 
 void loop() {
@@ -531,9 +538,7 @@ void connectToNetwork() {
   }
   // you're connected now, so print out the status:
   printWifiStatus();
-  
-  digitalWrite(LED_STARTING,LOW);
-  digitalWrite(LED_NETWORK_OK, HIGH);
+ 
 }
 
 /**
