@@ -174,10 +174,14 @@ router.route('/initdata')
 function saveData(jsonbody, estype, callback){
 
   var saveResp = {};
-
+  var reald = new Date();
   // convert millis time to a real datetime (all dates are passed in as GMT)
-  var reald = new Date(jsonbody.time * 1000);
-  jsonbody.datetime = reald;
+  // if JSON does not contain a reasonable time or a time at all, then use the 
+  // local server time
+  if(jsonbody.time) {
+    reald = new Date(jsonbody.time * 1000);
+    jsonbody.datetime = reald;
+  }
   
   console.log("Received data: " + JSON.stringify(jsonbody));
   //insert record
