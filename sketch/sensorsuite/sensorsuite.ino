@@ -12,6 +12,7 @@
 #include <avr/wdt.h>
 #include <WiFi101.h>
 #include <WiFiUdp.h>
+#include <Adafruit_GPS.h>
 
 /********************  WLAN settings ********************/
 #define ADAFRUIT_WINC1500_IRQ     2  
@@ -59,7 +60,7 @@
 #define MAX_CONNECT_ATTEMPTS      5                   // how many times to attemp wifi connect and DHCP lease
 #define NTP_PORT                  2390                // local port to listen for NTP packet responses
 #define NTP_PACKET_SIZE           48                  // fixed size for an NTP packet
-
+#define GPSECHO                   true                // turn local echo for GPS on / off
 /******************** structs for sensor data ********************/
 struct th
 {
@@ -82,12 +83,15 @@ struct gs
 };
 
 /******************** other initializations ********************/
-DHT dht(DHT_PIN, DHT_TYPE);
+HardwareSerial mySerial = Serial3;           // serial port for GPS
+DHT dht(DHT_PIN, DHT_TYPE);                 // DHT22 temp + humidity sensor
+Adafruit_GPS GPS(&mySerial);                // GPS instance
 WiFiUDP Udp;                                // A UDP instance to let us send and receive packets over UDP
 WiFiClient client;                          // A client instance to use to connect to our http server
 unsigned long startTime = 0L;               // the startup time, retrieved from an NTP server          
 byte packetBuffer[ NTP_PACKET_SIZE];        //buffer to hold incoming and outgoing packets
-int status = WL_IDLE_STATUS;      
+int status = WL_IDLE_STATUS;                // status of WINC1500 wireless
+boolean usingInterrupt = false;             // tracks whether or not we are using interrupt for GPS
 
 void setup() {
 
@@ -108,6 +112,14 @@ void setup() {
 
   // set up the pins for the WINC1500 breakout
   WiFi.setPins(ADAFRUIT_WINC1500_CS, ADAFRUIT_WINC1500_IRQ, ADAFRUIT_WINC1500_RST);
+  
+  GPS.begin(9600);
+  // Turn on RMC and GGA including altitude
+  GPS.sendCommand(PMTK_SET_NMEA_OUTPUT_RMCGGA);
+  // Set the update rate
+  GPS.sendCommand(PMTK_SET_NMEA_UPDATE_1HZ);
+  // set interrupt for gps
+  useInterrupt(true);
   
   // set up the watchdog timer
   wdt_enable(WDTO_8S); 
@@ -187,7 +199,7 @@ void setLocalTime() {
 
  // contact NTP server, use response as the current start time
   Udp.begin(NTP_PORT);
-  sendNTPpacket(timeServer); 
+  sendNTPpacket(); 
   wdt_reset();
   delay(5000);
   Serial.println("Setting local time from NTP");
@@ -261,8 +273,19 @@ int createAqPayload(gs gsdata, th thdata, ds dsdata, char *jbuf){
   JsonObject& root = jsonBuffer.createObject();
 
   // add in the time and version data for this package
-  if(startTime == 0) {
+  if(startTime != 0) {
     root["time"] = startTime + (int)(millis() / 1000);
+  }
+
+  // do we have a GPS fix?  If so, add gps data to the package
+  if(GPS.fix) {
+    JsonObject& gpsdataobj = root.createNestedObject("gps");
+    gpsdataobj["fixquality"] = (int)GPS.fixquality;
+    gpsdataobj["latdegrees"] = GPS.latitudeDegrees;
+    gpsdataobj["londegrees"] = GPS.longitudeDegrees;
+    gpsdataobj["speed"] = GPS.speed;
+    gpsdataobj["altitude"] = GPS.altitude;
+    gpsdataobj["sats"] = GPS.satellites;
   }
   
   root["dataversion"] = DATA_VERSION;
@@ -470,9 +493,9 @@ struct gs getGasSensorData() {
 }
 
 /**
- * send an NTP request to the time server at the given address, do not wait for a response
+ * send an NTP request to the time server running on the data host, do not wait for a response
  */
-unsigned long sendNTPpacket(IPAddress& address)
+unsigned long sendNTPpacket()
 {
   Serial.println("Sending NTP packet to server");
   memset(packetBuffer, 0, NTP_PACKET_SIZE);
@@ -565,4 +588,37 @@ void printWifiStatus() {
   Serial.print(F("Signal strength (RSSI):"));
   Serial.print(rssi);
   Serial.println(F(" dBm"));
+}
+
+// *************************** code from Adafruit GPS example ************************
+
+/** 
+ *  Interrupt is called once a millisecond, looks for any new GPS data, and stores it
+ */
+SIGNAL(TIMER0_COMPA_vect) {
+  char c = GPS.read();
+  // if you want to debug, this is a good time to do it!
+#ifdef UDR0
+  if (GPSECHO)
+    if (c) UDR0 = c;  
+    // writing direct to UDR0 is much much faster than Serial.print 
+    // but only one character can be written at a time. 
+#endif
+}
+
+/**
+ * Sets up interrupt to read GPS data
+ */
+void useInterrupt(boolean v) {
+  if (v) {
+    // Timer0 is already used for millis() - we'll just interrupt somewhere
+    // in the middle and call the "Compare A" function above
+    OCR0A = 0xAF;
+    TIMSK0 |= _BV(OCIE0A);
+    usingInterrupt = true;
+  } else {
+    // do not call the interrupt function COMPA anymore
+    TIMSK0 &= ~_BV(OCIE0A);
+    usingInterrupt = false;
+  }
 }
