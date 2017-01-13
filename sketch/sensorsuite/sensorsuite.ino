@@ -83,7 +83,8 @@ struct gs
 };
 
 /******************** other initializations ********************/
-HardwareSerial mySerial = Serial3;           // serial port for GPS
+//HardwareSerial mySerial = Serial3;           // serial port for GPS
+SoftwareSerial mySerial(15, 14);
 DHT dht(DHT_PIN, DHT_TYPE);                 // DHT22 temp + humidity sensor
 Adafruit_GPS GPS(&mySerial);                // GPS instance
 WiFiUDP Udp;                                // A UDP instance to let us send and receive packets over UDP
@@ -112,14 +113,17 @@ void setup() {
 
   // set up the pins for the WINC1500 breakout
   WiFi.setPins(ADAFRUIT_WINC1500_CS, ADAFRUIT_WINC1500_IRQ, ADAFRUIT_WINC1500_RST);
-  
+
   GPS.begin(9600);
+  Serial.println(F("Started GPS serial connection"));
   // Turn on RMC and GGA including altitude
   GPS.sendCommand(PMTK_SET_NMEA_OUTPUT_RMCGGA);
   // Set the update rate
   GPS.sendCommand(PMTK_SET_NMEA_UPDATE_1HZ);
   // set interrupt for gps
   useInterrupt(true);
+
+  Serial.println(F("GPS init commands sent"));
   
   // set up the watchdog timer
   wdt_enable(WDTO_8S); 
@@ -279,6 +283,7 @@ int createAqPayload(gs gsdata, th thdata, ds dsdata, char *jbuf){
 
   // do we have a GPS fix?  If so, add gps data to the package
   if(GPS.fix) {
+    Serial.println(F("GPS fix available"));
     JsonObject& gpsdataobj = root.createNestedObject("gps");
     gpsdataobj["fixquality"] = (int)GPS.fixquality;
     gpsdataobj["latdegrees"] = GPS.latitudeDegrees;
@@ -286,6 +291,8 @@ int createAqPayload(gs gsdata, th thdata, ds dsdata, char *jbuf){
     gpsdataobj["speed"] = GPS.speed;
     gpsdataobj["altitude"] = GPS.altitude;
     gpsdataobj["sats"] = GPS.satellites;
+  }else {
+    Serial.println(F("No GPS fix available"));
   }
   
   root["dataversion"] = DATA_VERSION;
