@@ -83,7 +83,6 @@ struct gs
 
 /******************** other initializations ********************/
 DHT dht(DHT_PIN, DHT_TYPE);
-IPAddress timeServer(129, 6, 15, 28);       // time.nist.gov NTP server
 WiFiUDP Udp;                                // A UDP instance to let us send and receive packets over UDP
 WiFiClient client;                          // A client instance to use to connect to our http server
 unsigned long startTime = 0L;               // the startup time, retrieved from an NTP server          
@@ -149,9 +148,12 @@ void loop() {
     delay(5000);
     wdt_reset();
   }
-  
-  //Serial.print(F("Free RAM: ")); 
-  //Serial.println(getFreeRam(), DEC);
+
+  // if the start time is zero, we haven't yet gotten it successfully. 
+  // if this is the case, try at each loop
+  if(startTime == 0) {
+    setLocalTime();  
+  }
   
   // read values from gas sensors
   struct gs gsdata = getGasSensorData();
@@ -259,7 +261,10 @@ int createAqPayload(gs gsdata, th thdata, ds dsdata, char *jbuf){
   JsonObject& root = jsonBuffer.createObject();
 
   // add in the time and version data for this package
-  root["time"] = startTime + (int)(millis() / 1000);
+  if(startTime == 0) {
+    root["time"] = startTime + (int)(millis() / 1000);
+  }
+  
   root["dataversion"] = DATA_VERSION;
   //root["freemem"] = getFreeRam();
   root["deviceid"] = DEVICE_ID;
