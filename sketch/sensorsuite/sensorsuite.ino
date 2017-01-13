@@ -219,7 +219,8 @@ void setLocalTime() {
     Serial.println(epoch); 
     startTime = epoch;    
   }else {
-    hang(F("Could not get NTP time, timeout exceeded"));
+    // don't hang any longer if we can't get time
+    //hang(F("Could not get NTP time, timeout exceeded"));
   }
 }
 
@@ -483,7 +484,7 @@ unsigned long sendNTPpacket(IPAddress& address)
 
   // all NTP fields have been given values, now
   // you can send a packet requesting a timestamp:
-  Udp.beginPacket(address, 123); //NTP requests are to port 123
+  Udp.beginPacket(DATA_HOST, 123); //NTP requests are to port 123
   Udp.write(packetBuffer, NTP_PACKET_SIZE);
   Udp.endPacket();
 }
