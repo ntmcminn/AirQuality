@@ -61,6 +61,8 @@
 #define NTP_PORT                  2390                // local port to listen for NTP packet responses
 #define NTP_PACKET_SIZE           48                  // fixed size for an NTP packet
 #define GPSECHO                   true                // turn local echo for GPS on / off
+#define gpsSerial                 Serial3             // hardware serial port used by the GPS
+
 /******************** structs for sensor data ********************/
 struct th
 {
@@ -83,10 +85,8 @@ struct gs
 };
 
 /******************** other initializations ********************/
-//HardwareSerial mySerial = Serial3;           // serial port for GPS
-SoftwareSerial mySerial(15, 14);
 DHT dht(DHT_PIN, DHT_TYPE);                 // DHT22 temp + humidity sensor
-Adafruit_GPS GPS(&mySerial);                // GPS instance
+Adafruit_GPS GPS(&gpsSerial);                // GPS instance
 WiFiUDP Udp;                                // A UDP instance to let us send and receive packets over UDP
 WiFiClient client;                          // A client instance to use to connect to our http server
 unsigned long startTime = 0L;               // the startup time, retrieved from an NTP server          
@@ -282,6 +282,10 @@ int createAqPayload(gs gsdata, th thdata, ds dsdata, char *jbuf){
   }
 
   // do we have a GPS fix?  If so, add gps data to the package
+  if (GPS.newNMEAreceived()) {
+    GPS.parse(GPS.lastNMEA());   
+  }
+  
   if(GPS.fix) {
     Serial.println(F("GPS fix available"));
     JsonObject& gpsdataobj = root.createNestedObject("gps");
