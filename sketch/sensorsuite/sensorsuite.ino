@@ -272,7 +272,7 @@ int createInitPayload(char *jbuf) {
  * readings, some system info (device id, data format version), and the current system time in GMT
  */
 int createAqPayload(gs gsdata, th thdata, ds dsdata, char *jbuf){
-  StaticJsonBuffer<200> jsonBuffer;
+  StaticJsonBuffer<JSON_BUFFER_SIZE> jsonBuffer;
 
   JsonObject& root = jsonBuffer.createObject();
 
