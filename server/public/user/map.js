@@ -27,8 +27,9 @@ function initMap() {
             '<h4>Location Reading</h4>' +
             '<div id="bodyContent">' +
             '<ul>' +
-            '<li>A reading here</li>' +
-            '<li>A second reading</li>' +
+            '<li>O3:  CO:  General:</li>' +
+            '<li>PM:</li>' +
+            '<li>Temperature: Humidity:</li>' +
             '</ul>' +
             '</div>' +
             '</div>';
