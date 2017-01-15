@@ -14,4 +14,19 @@
 .valuelabel {
     padding-right: 1em;
 }
+#map {
+    height: 600px;
+}
+html { 
+    overflow-y:scroll; 
+}
+body { 
+    padding-top:50px; 
+}
+#todo-list { 
+    margin-bottom:30px; 
+}
+trafficlight { 
+    padding:20px; 
+}
 
