@@ -130,6 +130,16 @@ router.route('/lastaqreading')
     });
   });
 
+router.route('/mapdata')
+
+  .get(function(req, res) {
+
+    // here we need a box parameter to tell elasticsearch how to search
+
+    // get all the readings within the defined timeframe and location
+
+  });
+
 // route for iteracting with air quality data records
 router.route('/aqdata')
 
