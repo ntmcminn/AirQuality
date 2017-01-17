@@ -5,15 +5,15 @@ module.exports = {
         "query" : {
             "filtered" : {
                 "query" : {
-                "match_all" : {}
-                },
-                "filter": {
-                "range" : {
-                    "datetime" : {
-                        "gte" : "now-1d/d",
-                        "lt" :  "now+1d/d"
+                    "match_all" : {}
+                    },
+                    "filter": {
+                    "range" : {
+                        "datetime" : {
+                            "gte" : "now-1d/d",
+                            "lt" :  "now+1d/d"
+                        }
                     }
-                }
                 }
             }
         },
@@ -40,6 +40,7 @@ module.exports = {
         }
     },
 
+    // last reading from a specific node
     lastaqquery: {
         "query": {
             "match_all": {}
@@ -52,5 +53,24 @@ module.exports = {
             }
             }
         ]
+    },
+
+    // map all nodes
+    mapquery: {
+        "query": {
+            "filtered" : {
+                "query" : {
+                    "match_all" : {}
+                    },
+                    "filter": {
+                    "range" : {
+                        "datetime" : {
+                            "gte" : "now-1d/d",
+                            "lt" :  "now+1d/d"
+                        }
+                    }
+                }
+            }
+        }
     }
-}
+}   
