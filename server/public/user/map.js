@@ -54,6 +54,21 @@ function initMap() {
         });
     }
 
+    // add listeners for zoom, center and bounds changes
+    map.addMarker('center_changed', null);
+    map.addMarker('zoom_changed', null);
+    map.addMarker('bounds_changed', null);
+
+    // get the viewport coordinates so we an ask Elasticsearch for the right data
+    features = getFeatures(map.getBounds());
+
+    for (var i = 0, feature; feature = features[i]; i++) {
+        addMarker(feature);
+    }
+}
+
+function getFeatures(LatLngBounds) {
+
     var features = [
         {
             position: new google.maps.LatLng(33.52, -86.8),
@@ -69,8 +84,4 @@ function initMap() {
             type: 'red'
         }
     ];
-
-    for (var i = 0, feature; feature = features[i]; i++) {
-        addMarker(feature);
-    }
 }
