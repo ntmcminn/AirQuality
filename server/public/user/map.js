@@ -1,77 +1,102 @@
+var markers = {
+    overall: [],
+    carbonmonoxide: [],
+    ozone: [],
+    organics: [],
+    particle: [],
+    temp: [],
+    humidity: []
+}
+
+var icons = {
+    green: {
+        icon: 'img/green-marker.png'
+    },
+    yellow: {
+        icon: 'img/yellow-marker.png'
+    },
+    orange: {
+        icon: 'img/orange-marker.png'
+    },
+    red: {
+        icon: 'img/red-marker.png'
+    }
+};
+
+var infowindow;
+
 function initMap() {
-   
+
     map = new google.maps.Map(document.getElementById('map'), {
         zoom: 12,
         center: new google.maps.LatLng(33.521236, -86.808944),
         mapTypeId: 'roadmap'
     });
 
-    var icons = {
-        green: {
-            icon: 'img/green-marker.png'
-        },
-        yellow: {
-            icon: 'img/yellow-marker.png'
-        },
-        orange: {
-            icon: 'img/orange-marker.png'
-        },
-        red: {
-            icon: 'img/red-marker.png'
-        }
-    };
-
-    function addMarker(feature) {
-
-        var contentString = '<div id="content">' +
-            '<h4>Location Reading</h4>' +
-            '<div id="bodyContent">' +
-            '<ul>' +
-            '<li>O3:  CO:  General:</li>' +
-            '<li>PM:</li>' +
-            '<li>Temperature: Humidity:</li>' +
-            '</ul>' +
-            '</div>' +
-            '</div>';
-
-        var infowindow = new google.maps.InfoWindow({
-            content: contentString
-        }); 
-        
-        var aqicon = {
-            url: icons[feature.type].icon,
-            size: new google.maps.Size(64, 64)
-        };
-
-        var marker = new google.maps.Marker({
-            position: feature.position,
-            icon: aqicon,
-            map: map
-        });
-
-        marker.addListener('click', function() {
-            infowindow.open(map, marker);
-        });
-    }
+    infowindow = new google.maps.InfoWindow();
 
     // add listeners for zoom, center and bounds changes
-    map.addMarker('center_changed', null);
-    map.addMarker('zoom_changed', null);
-    map.addMarker('bounds_changed', null);
+    map.addListener('center_changed', reloadData);
+    map.addListener('zoom_changed', reloadData);
+    map.addListener('bounds_changed', reloadData);
 
     // get the viewport coordinates so we an ask Elasticsearch for the right data
-    features = getFeatures(map.getBounds());
+    var readings = getReadings(map.getBounds());
 
-    for (var i = 0, feature; feature = features[i]; i++) {
-        addMarker(feature);
+    // clear the old markers
+
+    // add the new markers
+    for (var i = 0, reading; reading = readings[i]; i++) {
+        addMarker(reading);
     }
 }
 
-function getFeatures(LatLngBounds) {
+function reloadData(event) {
 
-    var features = [
+}
+
+function addMarker(feature, zoomlevel) {
+
+    var contentString = '<div id="content">' +
+        '<h4>Location Reading</h4>' +
+        '<div id="bodyContent">' +
+        '<ul>' +
+        '<li>Time Taken:</li>' +
+        '<li>O3:  CO:  General:</li>' +
+        '<li>PM:</li>' +
+        '<li>Temperature: Humidity:</li>' +
+        '</ul>' +
+        '</div>' +
+        '</div>';
+
+    // set the size according to the zoom level
+    var aqicon = {
+        url: icons[feature.type].icon,
+        scaledSize: new google.maps.Size(16, 16)
+    };
+
+    var marker = new google.maps.Marker({
+        position: feature.position,
+        icon: aqicon,
+        map: map
+    });
+
+    marker.addListener('click', function () {
+        infowindow.setContent(contentString);
+        infowindow.open(map, marker);
+    });
+}
+
+function getReadings(latlngbounds) {
+
+    // a reading represents a location, a time, 
+    // and all of the sensor readings and server
+    // side calculated values.  Each reading gets
+
+    var readings = [
         {
             position: new google.maps.LatLng(33.52, -86.8),
+            time: new Date(),
             type: 'green'
         }, {
             position: new google.maps.LatLng(33.51213, -86.7543454),
@@ -84,4 +109,6 @@ function getFeatures(LatLngBounds) {
             type: 'red'
         }
     ];
+
+    return readings;
 }
