@@ -25,10 +25,6 @@
 <body ng-controller="mainController">
     <div class="container" >
 
-        <div class="jumbotron text-center">
-            <h1>Ambient Air Quality</h1>
-        </div>
-
         <nav class="navbar navbar-default">
             <div class="container-fluid">
                 <div class="navbar-header">
@@ -52,14 +48,20 @@
             </div>
         </nav>
 
-        <div id="aq-indicator" class="row">
-            <div class="col-sm-12">
-                <h3>Air Quality Map</h3>
-            </div>
-        </div>
-
         <div id="aq-map" class="row">
-            <div class="col-sm-12" id="map">
+            
+            <div class="col-sm-2" id="menu">
+                <div class="list-group">
+                    <a href="#" class="list-group-item">Overall Quality</a>
+                    <a href="#" class="list-group-item">Airborne Particles</a>
+                    <a href="#" class="list-group-item">Ozone</a>
+                    <a href="#" class="list-group-item">Carbon Monoxide</a>
+                    <a href="#" class="list-group-item">Organic Compounds</a>
+                    <a href="#" class="list-group-item">Temperature</a>
+                    <a href="#" class="list-group-item">Humidity</a>
+                </div>
+            </div>
+            <div class="col-sm-10" id="map">
             </div>
             
             <script src="map.js"></script>
